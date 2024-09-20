@@ -46,7 +46,7 @@ def run_pipeline():
         plt.show()
     else:
         df = pd.read_csv(fpv)
-
+        print(fpv)
         le = preprocessing.LabelEncoder()
         for column_name in df.columns:
             if df[column_name].dtype == object:
