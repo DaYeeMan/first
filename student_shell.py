@@ -20,8 +20,34 @@ def run_pipeline():
     fpv = file_path_var.get()
     p = problem_type_var.get()
 
-    df = pd.read_csv(fpv)
+    #imports data
+    origData = pd.read_csv(fpv)
+    df = origData
+    #displays first 5 rows
+    print(df.head())
+    #checks for missing values
+    print(df.isnull().any())
 
+    #fills missing values
+    df.fillna(df.mean(numeric_only=True).round(1), inplace=True)
+    string_columns = df.select_dtypes(include=['object']).columns
+    df[string_columns] = df[string_columns].fillna(df[string_columns].mode().iloc[0])
+    #print(df.isnull().any())
+    #changes categorical values to numbers
+    le = preprocessing.LabelEncoder()
+    for column_name in df.columns:
+        if df[column_name].dtype == object:
+            df[column_name] = le.fit_transform(df[column_name])
+    else:
+        pass
+    #scales and normalizes data
+    scaler = StandardScaler()
+    ndf = scaler.fit_transform(df)
+    normalized_df = pd.DataFrame(ndf, columns=df.columns)
+    print("Raw Data")
+    print(df.head())
+    print("\nNormalized Data")
+    print(normalized_df.head())
     if(p == "Regression"):
         X = df[[xve]]
         y = df[yve]
@@ -45,15 +71,6 @@ def run_pipeline():
         plt.legend()
         plt.show()
     else:
-        df = pd.read_csv(fpv)
-        print(fpv)
-        le = preprocessing.LabelEncoder()
-        for column_name in df.columns:
-            if df[column_name].dtype == object:
-                df[column_name] = le.fit_transform(df[column_name])
-        else:
-            pass
-
         abc = df.columns.get_loc(yve)
         test2 = []
         test3 = []
