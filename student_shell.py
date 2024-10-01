@@ -33,6 +33,7 @@ def run_pipeline():
     string_columns = df.select_dtypes(include=['object']).columns
     df[string_columns] = df[string_columns].fillna(df[string_columns].mode().iloc[0])
     #print(df.isnull().any())
+
     #changes categorical values to numbers
     le = preprocessing.LabelEncoder()
     for column_name in df.columns:
@@ -85,8 +86,8 @@ def run_pipeline():
 
         X = df[test3]
         y = df[yve]
-        X.to_numpy()
-        y.to_numpy()
+        #X.to_numpy()
+        #y.to_numpy()
 
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
