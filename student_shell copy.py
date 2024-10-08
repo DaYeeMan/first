@@ -5,7 +5,7 @@ from sklearn.model_selection import train_test_split, KFold, cross_val_score
 from sklearn.linear_model import LogisticRegression, LinearRegression
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.preprocessing import StandardScaler, LabelEncoder, MinMaxScaler, OneHotEncoder
-from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, mean_squared_error, r2_score
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, root_mean_squared_error, r2_score
 from scipy.stats import ttest_ind
 import matplotlib.pyplot as plt
 from sklearn.metrics import classification_report
@@ -73,8 +73,8 @@ def run_pipeline():
 
         y_pred = model.predict(X_test)
 
-        mse = mean_squared_error(y_test, y_pred)
-        print(f'Mean Squared Error: {mse}')
+        rmse = root_mean_squared_error(y_test, y_pred)
+        print(f'Root Mean Squared Error: {rmse}')
 
         plt.figure(figsize=(10, 6))
         plt.scatter(X, y, color='blue', label='Data points')
