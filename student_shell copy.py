@@ -27,16 +27,18 @@ def run_pipeline():
     origData = pd.read_csv(fpv)
     df = origData
     #del df['full_name']
-    #displays first 5 rows
-    print(df.head())
 
     #checks for missing values
-    print(df.isnull().any())
+    #print(df.isnull().any())
 
     #fills missing values
     df = df.fillna(df.mode().iloc[0])
-    print(df.head())
+    #print(df.head())
 
+    #scaling
+    numerical_columns = df.select_dtypes(include=[np.number]).columns.tolist()
+    scaler = StandardScaler()
+    df[numerical_columns] = scaler.fit_transform(df[numerical_columns])
     """
     #oneHotEncoding
     categorical_columns = df.select_dtypes(include=['object']).columns.tolist()
