@@ -18,6 +18,7 @@ from ucimlrepo import fetch_ucirepo
 
 # Function to run the AutoML pipeline
 def run_pipeline():
+    #getting user input
     xve = X_var_entry.get()
     yve = y_var_entry.get()
     fpv = file_path_var.get()
@@ -26,16 +27,12 @@ def run_pipeline():
     #imports data
     origData = pd.read_csv(fpv)
     df = origData
-    #del df['full_name']
 
-    #checks for missing values
-    #print(df.isnull().any())
-
-    #fills missing values
+    #fills missing values using most frequent value
     df = df.fillna(df.mode().iloc[0])
     #print(df.head())
 
-    #scaling
+    #scaling using standard scaler on all numerical columns
     numerical_columns = df.select_dtypes(include=[np.number]).columns.tolist()
     scaler = StandardScaler()
     df[numerical_columns] = scaler.fit_transform(df[numerical_columns])
@@ -50,11 +47,12 @@ def run_pipeline():
 
     #df.drop('Unnamed: 32', axis=1, inplace=True)
     """
+    #encoding categorical columns with label encoding
     df_encoded = df.apply(LabelEncoder().fit_transform)
     print(df_encoded.head())
-    #getting columns in x
+
+    #getting the non target columns into test3 which will be used in classification
     abc = df_encoded.columns.get_loc(yve)
-    #abcd = df_encoded.columns.get_loc('Unnamed: 32')
     test2 = []
     test3 = []
     for i in range(len(df_encoded.columns)):
@@ -63,7 +61,6 @@ def run_pipeline():
     for i in range(len(test2)):
         test3.append(df_encoded.columns[test2[i]])
 
-    #sets x and y
     if(p == "Regression"):
         X = df_encoded[[xve]]
         y = df_encoded[yve]
