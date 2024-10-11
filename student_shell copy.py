@@ -48,22 +48,23 @@ def run_pipeline():
     #df.drop('Unnamed: 32', axis=1, inplace=True)
     """
     #encoding categorical columns with label encoding
-    df_encoded = df.apply(LabelEncoder().fit_transform)
-    print(df_encoded.head())
+    categorical_columns = df.select_dtypes(include=['object']).columns.tolist()
+    df[categorical_columns] = df[categorical_columns].apply(LabelEncoder().fit_transform)
+    print(df.head())
 
     #getting the non target columns into test3 which will be used in classification
-    abc = df_encoded.columns.get_loc(yve)
+    abc = df.columns.get_loc(yve)
     test2 = []
     test3 = []
-    for i in range(len(df_encoded.columns)):
+    for i in range(len(df.columns)):
         if(i != abc):
             test2.append(i)
     for i in range(len(test2)):
-        test3.append(df_encoded.columns[test2[i]])
+        test3.append(df.columns[test2[i]])
 
     if(p == "Regression"):
-        X = df_encoded[[xve]]
-        y = df_encoded[yve]
+        X = df[[xve]]
+        y = df[yve]
 
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
@@ -84,8 +85,8 @@ def run_pipeline():
         plt.legend()
         plt.show()
     else:
-        X = df_encoded[test3]
-        y = df_encoded[yve]
+        X = df[test3]
+        y = df[yve]
         #X.to_numpy()
         #y.to_numpy()
 
