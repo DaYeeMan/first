@@ -3,6 +3,7 @@ from tkinter import filedialog, messagebox
 import pandas as pd
 from sklearn.model_selection import train_test_split, KFold, cross_val_score
 from sklearn.linear_model import LogisticRegression, LinearRegression
+from sklearn.multiclass import OneVsRestClassifier
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.preprocessing import StandardScaler, LabelEncoder, MinMaxScaler, OneHotEncoder
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, root_mean_squared_error, r2_score
@@ -15,6 +16,9 @@ from sklearn import preprocessing
 from sklearn.svm import SVC
 from sklearn.cluster import KMeans
 from ucimlrepo import fetch_ucirepo 
+from mlxtend.evaluate import paired_ttest_5x2cv
+from scipy.stats import ttest_rel
+
 
 # Function to run the AutoML pipeline
 def run_pipeline():
@@ -28,12 +32,14 @@ def run_pipeline():
     origData = pd.read_csv(fpv)
     df = origData
 
-    #fills missing values using most frequent value
+    #fills missing values using most frequent value in that column
     df = df.fillna(df.mode().iloc[0])
     #print(df.head())
 
     #scaling using standard scaler on all numerical columns
     numerical_columns = df.select_dtypes(include=[np.number]).columns.tolist()
+    if yve in numerical_columns:
+        numerical_columns.remove(yve)
     scaler = StandardScaler()
     df[numerical_columns] = scaler.fit_transform(df[numerical_columns])
     """
@@ -52,7 +58,8 @@ def run_pipeline():
     df[categorical_columns] = df[categorical_columns].apply(LabelEncoder().fit_transform)
     print(df.head())
 
-    #getting the non target columns into test3 which will be used in classification
+    #getting the non target columns into X which will be used in classification
+    #there is probably a better way to do this
     abc = df.columns.get_loc(yve)
     test2 = []
     test3 = []
@@ -62,43 +69,41 @@ def run_pipeline():
     for i in range(len(test2)):
         test3.append(df.columns[test2[i]])
 
+    #i moved train test split and the models out of the loop so i can run k fold cross validation
+    X = df[test3]
+    y = df[yve]
+    #80 20 train test split using random seed
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    #using logistic regression which finds a probability between 0 and 1 for each class
+    #uses one vs rest for multi class classification problems
+    #turns a multiclass problem into a binary one
+    log_reg = OneVsRestClassifier(LogisticRegression(max_iter=1000))
+    #using random forest classification which uses decision trees to classify data
+    rf_clf = RandomForestClassifier(n_estimators=100, random_state=42)
+
     if(p == "Regression"):
-        X = df[[xve]]
-        y = df[yve]
-
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-
-        model = LinearRegression()
-        model.fit(X_train, y_train)
-
-        y_pred = model.predict(X_test)
-
-        rmse = root_mean_squared_error(y_test, y_pred)
-        print(f'Root Mean Squared Error: {rmse}')
-
-        plt.figure(figsize=(10, 6))
-        plt.scatter(X, y, color='blue', label='Data points')
-        plt.plot(X, model.predict(X), color='red', linewidth=2, label='Regression line')
-        plt.xlabel(xve)
-        plt.ylabel(yve)
-        plt.title('Linear Regression: '+ xve + " vs " + yve)
-        plt.legend()
-        plt.show()
+        log_reg.fit(X_train, y_train)
+        y_pred = log_reg.predict(X_test)
+        #using accuracy f1 precision and recall as eval metrics
+        accuracy = accuracy_score(y_test, y_pred)
+        f1 = f1_score(y_test, y_pred)
+        precision = precision_score(y_test, y_pred)
+        recall = recall_score(y_test, y_pred)
+        #printing scores/evaulation
+        print(f'Accuracy (Log Reg): {accuracy}')
+        print(f'F1 (Log Reg): {f1}')
+        print(f'Precision (Log Reg): {precision}')
+        print(f'Recall (Log Reg): {recall}')
+        print('Classification Report (Log Reg):')
+        print(classification_report(y_test, y_pred))
     else:
-        X = df[test3]
-        y = df[yve]
-        #X.to_numpy()
-        #y.to_numpy()
-
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-
-        rf_clf = RandomForestClassifier(n_estimators=100, random_state=42)
         rf_clf.fit(X_train, y_train)
         y_pred_rf = rf_clf.predict(X_test)
+        #using accuracy f1 precision and recall as eval metrics
         accuracy_rf = accuracy_score(y_test, y_pred_rf)
-        f1_rf = f1_score(y_test, y_pred_rf)
-        precision_rf = precision_score(y_test, y_pred_rf)
-        recall_rf = recall_score(y_test, y_pred_rf)
+        f1_rf = f1_score(y_test, y_pred_rf, average=None)
+        precision_rf = precision_score(y_test, y_pred_rf, average=None)
+        recall_rf = recall_score(y_test, y_pred_rf, average=None)
         #printing scores/evaulation
         print(f'Accuracy (Random Forest): {accuracy_rf}')
         print(f'F1 (Random Forest): {f1_rf}')
@@ -106,7 +111,32 @@ def run_pipeline():
         print(f'Recall (Random Forest): {recall_rf}')
         print('Classification Report (Random Forest):')
         print(classification_report(y_test, y_pred_rf))
-    # TODO Write this function - DO NOT use ChatGPT, if you have trouble updating the GUI print to the console
+
+    #k fold cross validation
+    k_folds = KFold(n_splits = 5)
+    scoresLR = cross_val_score(log_reg, X, y, cv = k_folds)
+    scoresRf = cross_val_score(rf_clf, X, y, cv = k_folds)
+
+    print("Cross Validation Scores (log_reg): ", scoresLR)
+    print("Average CV Score (log_reg): ", scoresLR.mean())
+
+    print("Cross Validation Scores (rf): ", scoresRf)
+    print("Average CV Score (rf): ", scoresRf.mean())
+
+    #using a t test to compare the 2 models
+    #t, p = paired_ttest_5x2cv(estimator1=log_reg,estimator2=rf_clf,X=X, y=y)
+    t, p = ttest_rel(scoresLR, scoresRf)
+    alpha = 0.05
+
+    print('t statistic: %.3f' % t)
+    print('aplha ', alpha)
+    print('p value: %.3f' % p)
+
+    #interpreting the t test results
+    if p > alpha:
+        print("No signifigant difference between the 2 models")
+    else:
+        print("Signifigant difference between the 2 models")
     pass
 
 # Function to select file
@@ -137,7 +167,7 @@ y_var_entry.grid(row=3, column=1, padx=10)
 tk.Label(root, text="Problem Type:").grid(row=4, column=0, sticky=tk.W, padx=10)
 problem_type_var = tk.StringVar(value="Classification")
 tk.Radiobutton(root, text="Classification", variable=problem_type_var, value="Classification").grid(row=4, column=1, sticky=tk.W)
-tk.Radiobutton(root, text="Regression", variable=problem_type_var, value="Regression").grid(row=4, column=1)
+tk.Radiobutton(root, text="Logistic Regression", variable=problem_type_var, value="Regression").grid(row=4, column=1)
 
 tk.Button(root, text="Run Pipeline", command=run_pipeline).grid(row=5, columnspan=3, pady=20)
 
