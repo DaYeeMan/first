@@ -8,7 +8,7 @@ pygame.init()
 # Screen dimensions
 WIDTH, HEIGHT = 800, 600
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
-pygame.display.set_caption("Wave Survival Game")
+pygame.display.set_caption("Bullet Survivors")
 
 # Colors
 WHITE = (255, 255, 255)
@@ -112,7 +112,7 @@ def handle_special_upgrade():
 
     upgrading = True
     upgrade_text = font.render(
-        "Special Upgrade: 1. Piercing Bullets 2. Backwards Shooting 3. Second Life",
+        "1. Piercing Bullets 2. Backwards Shooting 3. Second Life",
         True,
         WHITE,
     )
@@ -144,7 +144,7 @@ def handle_special_upgrade():
 # Function for the start menu
 def start_menu():
     menu_running = True
-    title_text = big_font.render("Wave Survival Game", True, WHITE)
+    title_text = big_font.render("Bullet Survivors", True, WHITE)
     start_text = font.render("Press ENTER to Start", True, WHITE)
 
     while menu_running:
