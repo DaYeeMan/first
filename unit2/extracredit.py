@@ -2,6 +2,8 @@ import tkinter as tk
 from tkinter import messagebox
 import numpy as np
 import sympy as sp
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 
 def parse_function(fs):
     try:
@@ -62,7 +64,7 @@ def integrate():
         b_str = b_entry.get()
         
         if not func_str or not a_str or not b_str:
-            messagebox.showwarning("Input Error", "Please enter function and both bounds.")
+            messagebox.showwarning("Input Error", "Please enter a function and both bounds.")
             return
         
         f = parse_function(func_str)
@@ -81,9 +83,37 @@ def integrate():
         if integral is not None:
             result_label.config(text=f"Integral from {a} to {b}: {integral:.6f}")
     except ValueError:
-        messagebox.showerror("Input Error", "Invalid bound values. Please enter numbers.")
+        messagebox.showerror("Input Error", "Invalid bounds.")
     except Exception as e:
         messagebox.showerror("Integration Error", str(e))
+
+def plot_function():
+    fs = function_entry.get()
+
+    if not fs:
+        messagebox.showwarning("Input Error", "Please enter a function.")
+        return
+    
+    f = parse_function(fs)
+    if not f:
+        return
+    
+    plot_window = tk.Toplevel(root)
+    fig, ax = plt.subplots(figsize=(8, 6))
+    x = np.linspace(-10, 10, 200)
+    
+    y = f(x)
+    ax.plot(x, y, label=f'f(x) = {fs}')
+    ax.set_title(f'Function: {fs}')
+    ax.set_xlabel('x')
+    ax.set_ylabel('f(x)')
+    ax.grid(True)
+    ax.axhline(y=0, color='k', linewidth=0.5)
+    ax.axvline(x=0, color='k', linewidth=0.5)
+    ax.legend()
+    canvas = FigureCanvasTkAgg(fig, master=plot_window)
+    canvas.draw()
+    canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
 
 # Create the main window
 root = tk.Tk()
@@ -103,6 +133,9 @@ b_label = tk.Label(root, text="Enter upper bound b:")
 b_entry = tk.Entry(root, width=20)
 integrate_button = tk.Button(root, text="Integrate", command=integrate)
 
+# Plot button
+plot_button = tk.Button(root, text="Plot Function", command=plot_function)
+
 result_label = tk.Label(root, text="Result will be shown here.")
 
 # Layout widgets
@@ -118,6 +151,9 @@ a_entry.pack()
 b_label.pack()
 b_entry.pack()
 integrate_button.pack()
+
+# Add plot button to layout
+plot_button.pack()
 
 result_label.pack()
 
