@@ -296,7 +296,7 @@ while running:
             elif wave % 5 == 0:
                 handle_upgrade()
 
-    # Display score and wave
+    # Display score and waves
     score_text = font.render(f"Score: {score}  Wave: {wave}", True, WHITE)
     screen.blit(score_text, (10, 10))
 
