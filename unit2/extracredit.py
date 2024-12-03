@@ -12,7 +12,7 @@ def parse_function(fs):
         parsed_func = sp.lambdify(x, sp.simplify(fs), 'numpy')
         return parsed_func
     except Exception as e:
-        messagebox.showerror("Function Parsing Error", f"Unable to parse function: {e}")
+        messagebox.showerror("Function Parsing Error"+str(e))
         return None
 
 def central_difference(f, x, h=0.01):
@@ -20,7 +20,7 @@ def central_difference(f, x, h=0.01):
         derivative = (f(x+h) - f(x-h)) / (2*h)
         return derivative
     except Exception as e:
-        messagebox.showerror("Differentiation Error", f"Error in numerical differentiation: {e}")
+        messagebox.showerror("Differentiation Error"+str(e))
         return None
 
 def monte_carlo_integration(f, a, b, n=10000):
@@ -30,7 +30,7 @@ def monte_carlo_integration(f, a, b, n=10000):
         integral = (b-a) * np.mean(y)
         return integral
     except Exception as e:
-        messagebox.showerror("Integration Error", f"Error in numerical integration: {e}")
+        messagebox.showerror("Integration Error"+str(e))
         return None
 
 def differentiate():
