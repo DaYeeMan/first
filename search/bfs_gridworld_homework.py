@@ -101,11 +101,12 @@ def start_bfs(start, goal):
 def bfs_step():
     if bfs_queue:
         # TODO Define a current node by popping from the queue
-        
+        current_node = deque(bfs_queue)
+        visited.add(current_node)
         # Get neighbors of the current node
         for neighbor in get_neighbors(current_node):
             # TODO Manage the queue
-                
+                bfs_queue.append(neighbor)
                 # Update the grid for visualization (don't edit)
                 if neighbor != start and neighbor != goal:
                     grid[neighbor[1]][neighbor[0]] = YELLOW
