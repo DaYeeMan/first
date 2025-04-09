@@ -8,7 +8,7 @@ GRID_WIDTH = 20
 GRID_HEIGHT = 20
 WINDOW_WIDTH = GRID_SIZE * GRID_WIDTH
 WINDOW_HEIGHT = GRID_SIZE * GRID_HEIGHT + 50  # Extra space for buttons
-FPS = 10
+FPS = 60
 
 # Colors
 WHITE = (255, 255, 255)
@@ -101,15 +101,25 @@ def start_bfs(start, goal):
 def bfs_step():
     if bfs_queue:
         # TODO Define a current node by popping from the queue
-        current_node = deque(bfs_queue)
-        visited.add(current_node)
+        current_node, pathTest = bfs_queue.popleft()
+        #testTest = pathTest
         # Get neighbors of the current node
         for neighbor in get_neighbors(current_node):
             # TODO Manage the queue
-                bfs_queue.append(neighbor)
+            if(neighbor not in visited):
+                visited.add(neighbor)
+                #pathTest += current_node
+                bfs_queue.append((neighbor, pathTest + [current_node]))
                 # Update the grid for visualization (don't edit)
                 if neighbor != start and neighbor != goal:
                     grid[neighbor[1]][neighbor[0]] = YELLOW
+                if neighbor == goal:
+                    pathTest += [current_node]
+                    print(pathTest)
+                    for i in range(len(pathTest)-1):
+                        coords = pathTest[i+1]
+                        grid[coords[1]][coords[0]] = BLUE
+                    return True
     return False
 
 # Function to get neighbors of a node

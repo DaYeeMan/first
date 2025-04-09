@@ -99,15 +99,26 @@ def start_dfs(start, goal):
 # Function to run a single step of DFS
 def dfs_step():
     if dfs_stack:
-        # TODO Define current node
-        
+        # TODO Define a current node by popping from the queue
+        current_node, pathTest = dfs_stack.pop()
+        #testTest = pathTest
         # Get neighbors of the current node
         for neighbor in get_neighbors(current_node):
-            # TODO Manage queue
-                
-                # Update the grid for visualization
+            # TODO Manage the queue
+            if(neighbor not in visited):
+                visited.add(neighbor)
+                #pathTest += current_node
+                dfs_stack.append((neighbor, pathTest + [current_node]))
+                # Update the grid for visualization (don't edit)
                 if neighbor != start and neighbor != goal:
                     grid[neighbor[1]][neighbor[0]] = YELLOW
+                if neighbor == goal:
+                    pathTest += [current_node]
+                    print(pathTest)
+                    for i in range(len(pathTest)-1):
+                        coords = pathTest[i+1]
+                        grid[coords[1]][coords[0]] = BLUE
+                    return True
     return False
 
 # Function to get neighbors of a node
