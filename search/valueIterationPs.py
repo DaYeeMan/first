@@ -69,10 +69,10 @@ def value_iteration(gamma=0.9, theta=1e-6):
             return V[s]
         if a == 'L':
             s_next = states[max(0, states.index(s) - 1)]
-        elif a == 'R' and s != 'E':  # Prevent right action from E
+        elif a == 'R':
+            if s == 'E':  # You can't move right from E
+                return -100
             s_next = states[min(len(states) - 1, states.index(s) + 1)]
-        elif a == 'R' and s == 'E':
-            return -100 # This is to make moving right not possible
         return rewards[s] + gamma * V[s_next]
 
     # Keep iteratively updating the policy based on the expected reward for each move
