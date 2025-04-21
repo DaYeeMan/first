@@ -166,7 +166,7 @@ final_values, optimal_policy = value_iteration(
     grid_size=GRID_SIZE,
     rewards=REWARDS,
     terminal_states=TERMINAL_STATES,
-    gamma=0.9,
+    gamma=0.5,
     theta=1e-6
 )
 
