@@ -101,19 +101,31 @@ class LiarsDiceEnv:
         
         return self.get_state(), reward, done, info
     
+    def get_max_possible_count(self, value: int) -> int:
+        """Calculate the maximum possible count of a value including ones."""
+        # Count actual dice showing this value
+        count = np.sum(self.player1_dice == value) + np.sum(self.player2_dice == value)
+        # Add all ones as they can be wild
+        count += np.sum(self.player1_dice == 1) + np.sum(self.player2_dice == 1)
+        return count
+    
     def get_legal_actions(self) -> List[Tuple[str, Tuple[int, int]]]:
         """Return list of all legal actions in the current state."""
         actions = []
         
         # Add all possible bets
         if self.current_bet is None:
-            for count in range(1, self.num_dice * 2 + 1):
-                for value in range(1, 7):
+            for value in range(1, 7):
+                max_count = self.get_max_possible_count(value)
+                # Allow bets up to max_count + 2 for bluffing
+                for count in range(1, min(max_count + 3, self.num_dice * 2 + 1)):
                     actions.append(('bet', (count, value)))
         else:
             current_count, current_value = self.current_bet
-            for count in range(current_count, self.num_dice * 2 + 1):
-                for value in range(1, 7):
+            for value in range(1, 7):
+                max_count = self.get_max_possible_count(value)
+                # Allow bets up to max_count + 2 for bluffing
+                for count in range(current_count, min(max_count + 3, self.num_dice * 2 + 1)):
                     if count > current_count or (count == current_count and value > current_value):
                         actions.append(('bet', (count, value)))
         

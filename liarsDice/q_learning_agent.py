@@ -49,11 +49,26 @@ class QLearningAgent:
         self.q_table[(state_key, action_key)] = new_q
     
     def choose_action(self, state: np.ndarray) -> Tuple[str, Tuple[int, int]]:
-        """Choose action using epsilon-greedy policy."""
+        """Choose action using epsilon-greedy policy with heuristic for high bets."""
         legal_actions = self.env.get_legal_actions()
         
         if random.random() < self.exploration_rate:
             return random.choice(legal_actions)
+        
+        # Calculate expected value for current bet if it exists
+        if self.env.current_bet is not None:
+            current_count, current_value = self.env.current_bet
+            expected_count = (2/6) * 10  # Expected count for any value including wild ones
+            
+            # If bet is significantly above expected value, bias towards calling liar
+            if current_count > expected_count + 2:  # Allow some room for bluffing
+                # Check if liar is a legal action
+                liar_action = ('liar', None)
+                if liar_action in legal_actions:
+                    # With some probability, choose liar based on how far above expected
+                    probability = min(0.8, (current_count - expected_count) / 10)
+                    if random.random() < probability:
+                        return liar_action
         
         # Choose best action based on Q-values
         best_action = None
@@ -207,3 +222,39 @@ class QLearningAgent:
                 policy[state_key] = best_action
         
         return policy 
+
+    def save_compressed_q_table(self, filename: str) -> None:
+        """Save a compressed version of the Q-table that maintains agent behavior."""
+        import gzip
+        import pickle
+        import numpy as np
+        
+        # Convert defaultdict to regular dict for serialization
+        q_dict = dict(self.q_table)
+        
+        # Convert state tuples to numpy arrays for better compression
+        compressed_q = {}
+        for (state, action), value in q_dict.items():
+            # Convert state tuple to numpy array if it's not already
+            if isinstance(state, tuple):
+                state = np.array(state, dtype=np.int8)  # Use int8 to save space
+            compressed_q[(state.tobytes(), action)] = value
+        
+        # Save with highest protocol and compression
+        with gzip.open(filename, 'wb', compresslevel=9) as f:
+            pickle.dump(compressed_q, f, protocol=pickle.HIGHEST_PROTOCOL)
+    
+    def load_compressed_q_table(self, filename: str) -> None:
+        """Load a compressed Q-table."""
+        import gzip
+        import pickle
+        import numpy as np
+        
+        with gzip.open(filename, 'rb') as f:
+            compressed_q = pickle.load(f)
+        
+        # Convert back to original format
+        self.q_table = defaultdict(float)
+        for (state_bytes, action), value in compressed_q.items():
+            state = np.frombuffer(state_bytes, dtype=np.int8)
+            self.q_table[(tuple(state), action)] = value 

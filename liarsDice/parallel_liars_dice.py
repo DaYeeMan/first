@@ -148,7 +148,7 @@ class ParallelTrainer:
         start_time = time.time()
         
         with ProcessPoolExecutor(max_workers=self.num_processes) as executor:
-            for i, (episode_stats, _) in enumerate(executor.map(self.train_episode, range(self.num_episodes))):
+            for i, (episode_stats, q_table) in enumerate(executor.map(self.train_episode, range(self.num_episodes))):
                 self.merge_stats(episode_stats)
                 
                 if (i + 1) % 1000 == 0:
@@ -159,6 +159,11 @@ class ParallelTrainer:
         
         print("\nTraining completed!")
         print(f"Total time: {time.time() - start_time:.2f} seconds")
+        
+        # Save final Q-table
+        agent1 = QLearningAgent(LiarsDiceEnv())
+        agent1.q_table = q_table
+        agent1.save_compressed_q_table('liars_dice_policy.gz')
 
 if __name__ == "__main__":
     trainer = ParallelTrainer(num_episodes=10000)
