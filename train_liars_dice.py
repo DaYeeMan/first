@@ -36,7 +36,7 @@ def main():
     
     # Train the agent
     print("Training the agent...")
-    agent.train(num_episodes=100000)
+    agent.train(num_episodes=50000)
     
     # Get and analyze the policy
     policy = agent.get_policy()

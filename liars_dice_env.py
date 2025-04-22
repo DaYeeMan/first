@@ -15,14 +15,31 @@ class LiarsDiceEnv:
         self.current_bet = None
         self.current_player = 0  # 0 for player 1, 1 for player 2
         
-    def get_state(self) -> Dict:
-        """Return the current game state."""
-        return {
-            'current_player': self.current_player,
-            'current_bet': self.current_bet,
-            'player1_dice': self.player1_dice.copy(),
-            'player2_dice': self.player2_dice.copy()
-        }
+    def get_state(self) -> np.ndarray:
+        """Return the current game state as a numpy array."""
+        # Create a compact state representation
+        state = np.zeros(13, dtype=np.int32)  # 5 + 5 + 1 + 1 + 1
+        
+        # Player 1's dice counts (excluding 1s)
+        for i in range(2, 7):
+            state[i-2] = np.sum(self.player1_dice == i)
+        
+        # Player 2's dice counts (excluding 1s)
+        for i in range(2, 7):
+            state[i+3] = np.sum(self.player2_dice == i)
+        
+        # Number of 1s for each player
+        state[10] = np.sum(self.player1_dice == 1)
+        state[11] = np.sum(self.player2_dice == 1)
+        
+        # Current bet information
+        if self.current_bet is not None:
+            count, value = self.current_bet
+            state[12] = count * 10 + value  # Encode bet as a single number
+        else:
+            state[12] = 0
+        
+        return state
     
     def count_dice(self, value: int) -> int:
         """Count total number of dice showing a specific value (including 1s)."""
@@ -45,7 +62,7 @@ class LiarsDiceEnv:
             return True
         return False
     
-    def step(self, action: Tuple[str, Tuple[int, int]]) -> Tuple[Dict, float, bool, Dict]:
+    def step(self, action: Tuple[str, Tuple[int, int]]) -> Tuple[np.ndarray, float, bool, Dict]:
         """
         Execute an action and return (next_state, reward, done, info)
         Action can be:
