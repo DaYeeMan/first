@@ -42,10 +42,17 @@ class LiarsDiceEnv:
         return state
     
     def count_dice(self, value: int) -> int:
-        """Count total number of dice showing a specific value (including 1s)."""
-        total = np.sum(self.player1_dice == value) + np.sum(self.player2_dice == value)
-        total += np.sum(self.player1_dice == 1) + np.sum(self.player2_dice == 1)
-        return total
+        """Count total number of dice showing a specific value.
+        If value is 1, only count actual ones.
+        For other values, count both the value and ones (wild)."""
+        if value == 1:
+            # For ones, only count actual ones
+            return np.sum(self.player1_dice == 1) + np.sum(self.player2_dice == 1)
+        else:
+            # For other values, count both the value and ones (wild)
+            total = np.sum(self.player1_dice == value) + np.sum(self.player2_dice == value)
+            total += np.sum(self.player1_dice == 1) + np.sum(self.player2_dice == 1)
+            return total
     
     def is_valid_bet(self, bet: Tuple[int, int]) -> bool:
         """Check if a bet is valid given the current bet."""

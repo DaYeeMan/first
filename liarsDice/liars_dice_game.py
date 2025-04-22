@@ -330,14 +330,35 @@ class LiarsDiceGame:
             self.history_text.insert(tk.END, text + '\n', color)
     
     def handle_game_over(self, reward):
+        # Show opponent's dice and actual count
+        if self.env.current_bet is not None:
+            count, value = self.env.current_bet
+            total_count = self.env.count_dice(value)
+            opponent_dice = self.env.player2_dice if self.current_player == 0 else self.env.player1_dice
+            
+            # Create message with opponent's dice and count
+            dice_str = ", ".join(map(str, opponent_dice))
+            message = f"Opponent's dice: {dice_str}\n"
+            message += f"Total {value}'s (including wild ones): {total_count}\n"
+            
+            if reward > 0:
+                message += "You won!"
+                self.stats['wins'] += 1
+            else:
+                message += "You lost!"
+                self.stats['losses'] += 1
+            
+            messagebox.showinfo("Game Over", message)
+        else:
+            if reward > 0:
+                messagebox.showinfo("Game Over", "You won!")
+                self.stats['wins'] += 1
+            else:
+                messagebox.showinfo("Game Over", "You lost!")
+                self.stats['losses'] += 1
+        
         # Update stats
         self.stats['total_games'] += 1
-        if reward > 0:
-            self.stats['wins'] += 1
-            messagebox.showinfo("Game Over", "You won!")
-        else:
-            self.stats['losses'] += 1
-            messagebox.showinfo("Game Over", "You lost!")
         
         # Save and update stats
         self.save_stats()
