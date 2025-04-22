@@ -16,7 +16,13 @@ class QLearningAgent:
         
     def get_state_key(self, state: Dict) -> str:
         """Convert state to a string key for Q-table."""
-        return f"{state['current_player']}_{state['current_bet']}_{tuple(state['player1_dice'])}_{tuple(state['player2_dice'])}"
+        # Convert numpy arrays to tuples for hashing
+        p1_dice = tuple(state['player1_dice'].tolist())
+        p2_dice = tuple(state['player2_dice'].tolist())
+        current_bet = state['current_bet']
+        if current_bet is not None:
+            current_bet = tuple(current_bet)
+        return f"{state['current_player']}_{current_bet}_{p1_dice}_{p2_dice}"
     
     def get_q_value(self, state: Dict, action: Tuple[str, Tuple[int, int]]) -> float:
         """Get Q-value for state-action pair."""
@@ -69,7 +75,7 @@ class QLearningAgent:
     def train(self, num_episodes: int) -> None:
         """Train the agent for specified number of episodes."""
         for episode in range(num_episodes):
-            state = self.env.reset()
+            state = self.env.get_state()  # Get initial state after reset
             done = False
             total_reward = 0
             

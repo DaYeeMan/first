@@ -8,14 +8,13 @@ class LiarsDiceEnv:
         self.dice_values = 6
         self.reset()
         
-    def reset(self) -> Tuple[np.ndarray, np.ndarray]:
-        """Reset the game state and return initial dice for both players."""
+    def reset(self) -> None:
+        """Reset the game state."""
         self.player1_dice = np.random.randint(1, 7, self.num_dice)
         self.player2_dice = np.random.randint(1, 7, self.num_dice)
         self.current_bet = None
         self.current_player = 0  # 0 for player 1, 1 for player 2
-        return self.player1_dice, self.player2_dice
-    
+        
     def get_state(self) -> Dict:
         """Return the current game state."""
         return {
