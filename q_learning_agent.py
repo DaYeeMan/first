@@ -69,25 +69,29 @@ class QLearningAgent:
     
     def analyze_betting_patterns(self, state: np.ndarray, action: Tuple[str, Tuple[int, int]], 
                                stats: Dict) -> None:
-        """Analyze betting patterns and bluffing behavior."""
-        if action[0] == 'bet':
-            count, value = action[1]
-            player_dice = state[:5]  # Player 1's dice counts (2-6)
-            player_ones = state[10]  # Player 1's ones
-            
-            # Track bet value distribution
+        """Analyze betting patterns and track bluffing behavior."""
+        action_type, bet_info = action
+        
+        if action_type == 'bet':
+            count, value = bet_info
             stats['bet_values'][value] += 1
-            
-            # Track bet sizes
             stats['bet_sizes'][count] += 1
             
-            # Analyze bluffing
-            if value > 1:  # Don't count ones as they're wild
-                actual_count = player_dice[value-2]  # value-2 because array is 0-based for values 2-6
-                if actual_count == 0 and player_ones == 0:  # True bluff
-                    stats['bluffs'][value] += 1
-                elif actual_count == 0 and player_ones > 0:  # Semi-bluff with ones
-                    stats['semi_bluffs'][value] += 1
+            # Check for bluffing
+            if value == 1:
+                # For ones, just look at actual ones
+                actual_count = state[10] + state[11]  # Player 1's ones + Player 2's ones
+            else:
+                # For other values, count the specific value plus ones
+                actual_count = state[value-2] + state[value+3]  # Player 1's + Player 2's value count
+                actual_count += state[10] + state[11]  # Add ones as wild
+            
+            # If betting more than actual count, it's a bluff
+            if count > actual_count:
+                if value == 1:
+                    stats['semi_bluffs'][value] += 1  # Semi-bluff using ones
+                else:
+                    stats['bluffs'][value] += 1  # True bluff
     
     def train(self, num_episodes: int) -> None:
         """Train the agent for specified number of episodes."""
