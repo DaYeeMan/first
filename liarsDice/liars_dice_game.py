@@ -355,7 +355,8 @@ class LiarsDiceGame:
             message = f"Opponent's dice: {dice_str}\n"
             message += f"Total {value}'s (including wild ones): {total_count}\n"
             
-            if reward > 0:
+            # Determine winner based on reward and current player
+            if (reward > 0 and self.current_player == 0) or (reward < 0 and self.current_player == 1):
                 message += "You won!"
                 self.stats['wins'] += 1
             else:
@@ -364,7 +365,8 @@ class LiarsDiceGame:
             
             messagebox.showinfo("Game Over", message)
         else:
-            if reward > 0:
+            # Handle cases where game ends without a bet
+            if (reward > 0 and self.current_player == 0) or (reward < 0 and self.current_player == 1):
                 messagebox.showinfo("Game Over", "You won!")
                 self.stats['wins'] += 1
             else:

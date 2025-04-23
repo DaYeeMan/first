@@ -147,7 +147,7 @@ class LiarsDiceEnv:
         Count total number of dice showing a specific value.
         
         Rules:
-        - For value=1: Only count actual ones
+        - For value=1: Only count actual ones (no wild cards)
         - For values 2-6: Count both the specific value AND ones (wild)
         
         Args:
@@ -156,14 +156,14 @@ class LiarsDiceEnv:
         Returns:
             Total count according to game rules
         """
-        if value == 1:
-            # For ones, only count actual ones
-            return np.sum(self.player1_dice == 1) + np.sum(self.player2_dice == 1)
-        else:
-            # For other values, count both the value and ones (wild)
-            total = np.sum(self.player1_dice == value) + np.sum(self.player2_dice == value)
+        # Count actual dice showing the value
+        total = np.sum(self.player1_dice == value) + np.sum(self.player2_dice == value)
+        
+        # For non-1 values, add ones as wild cards
+        if value != 1:
             total += np.sum(self.player1_dice == 1) + np.sum(self.player2_dice == 1)
-            return total
+        
+        return total
     
     def is_valid_bet(self, bet: Tuple[int, int]) -> bool:
         """
