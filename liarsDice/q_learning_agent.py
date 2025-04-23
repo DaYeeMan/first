@@ -1,3 +1,34 @@
+"""
+Q-Learning Agent for Liar's Dice
+
+This agent learns to play Liar's Dice using Q-learning, a model-free reinforcement
+learning algorithm. The agent learns by playing against itself and updating its
+Q-values based on the rewards it receives.
+
+Strategy Overview:
+-----------------
+1. State Representation:
+   - Includes both players' dice counts
+   - Current bet information
+   - Expected values and probabilities
+   - Game progress features
+
+2. Action Selection:
+   - Uses epsilon-greedy strategy with decay
+   - Enhanced heuristics for Liar and Spot On calls
+   - Balances exploration and exploitation
+
+3. Learning Process:
+   - Updates Q-values based on rewards and next state values
+   - Uses additional rewards for good strategic decisions
+   - Tracks betting patterns and bluffing behavior
+
+4. Bluffing Strategy:
+   - Learns to make occasional high bets (bluffs)
+   - Distinguishes between true bluffs and semi-bluffs
+   - Adapts bluffing frequency based on success
+"""
+
 import numpy as np
 from typing import Tuple, List, Dict
 import random
@@ -5,19 +36,49 @@ from liars_dice_env import LiarsDiceEnv
 from collections import defaultdict
 
 class QLearningAgent:
-    def __init__(self, env: LiarsDiceEnv, learning_rate=0.1, discount_factor=0.9, 
-                 exploration_rate=1.0, exploration_decay=0.995, min_exploration=0.01):
+    def __init__(self, env: LiarsDiceEnv, learning_rate=0.05, discount_factor=0.95, 
+                 exploration_rate=1.0, exploration_decay=0.999, min_exploration=0.01):
+        """
+        Initialize the Q-learning agent.
+        
+        Args:
+            env: The Liar's Dice environment
+            learning_rate: How quickly the agent updates its Q-values (α)
+            discount_factor: How much future rewards are valued (γ)
+            exploration_rate: Initial probability of random action (ε)
+            exploration_decay: Rate at which exploration probability decreases
+            min_exploration: Minimum exploration probability
+        """
         self.env = env
-        self.learning_rate = learning_rate
-        self.discount_factor = discount_factor
+        self.learning_rate = learning_rate  # Smaller for more stable learning
+        self.discount_factor = discount_factor  # Higher to value future rewards more
         self.exploration_rate = exploration_rate
-        self.exploration_decay = exploration_decay
+        self.exploration_decay = exploration_decay  # Slower decay for more exploration
         self.min_exploration = min_exploration
         self.q_table = defaultdict(float)
         
     def get_state_key(self, state: np.ndarray) -> tuple:
-        """Convert state to a tuple key for Q-table."""
-        return tuple(state)
+        """
+        Convert state to a tuple key for Q-table.
+        
+        Discretizes continuous features (like expected values and deviations)
+        into 5 bins for better generalization. This helps the agent learn
+        similar strategies for similar situations.
+        
+        Args:
+            state: The current state array
+        
+        Returns:
+            Tuple that can be used as a dictionary key
+        """
+        discretized_state = []
+        for i, value in enumerate(state):
+            if i in [14, 15, 16, 17]:  # Continuous features
+                # Discretize into 5 bins
+                discretized_state.append(int(value * 5))
+            else:
+                discretized_state.append(int(value))
+        return tuple(discretized_state)
     
     def get_q_value(self, state: np.ndarray, action: Tuple[str, Tuple[int, int]]) -> float:
         """Get Q-value for state-action pair."""
@@ -49,7 +110,22 @@ class QLearningAgent:
         self.q_table[(state_key, action_key)] = new_q
     
     def choose_action(self, state: np.ndarray) -> Tuple[str, Tuple[int, int]]:
-        """Choose action using epsilon-greedy policy with heuristic for high bets."""
+        """
+        Choose action using epsilon-greedy policy with enhanced heuristics.
+        
+        Strategy:
+        1. Random Action: With probability ε, choose random action
+        2. Heuristic Actions:
+           - Call Liar on significantly high bets
+           - Call Spot On on bets close to expected value
+        3. Q-Value Based: Otherwise choose action with highest Q-value
+        
+        Args:
+            state: Current game state
+        
+        Returns:
+            Chosen action in format (action_type, (count, value))
+        """
         legal_actions = self.env.get_legal_actions()
         
         if random.random() < self.exploration_rate:
@@ -58,17 +134,30 @@ class QLearningAgent:
         # Calculate expected value for current bet if it exists
         if self.env.current_bet is not None:
             current_count, current_value = self.env.current_bet
-            expected_count = (2/6) * 10  # Expected count for any value including wild ones
             
-            # If bet is significantly above expected value, bias towards calling liar
-            if current_count > expected_count + 2:  # Allow some room for bluffing
+            # Get expected value from state features
+            if current_value == 1:
+                expected_value = state[20]  # Expected ones
+            else:
+                expected_value = state[19 + current_value]  # Expected value + wild ones
+            
+            # Enhanced heuristic for calling liar
+            if current_count > expected_value + 2:  # Significantly above expected
                 # Check if liar is a legal action
                 liar_action = ('liar', None)
                 if liar_action in legal_actions:
-                    # With some probability, choose liar based on how far above expected
-                    probability = min(0.8, (current_count - expected_count) / 10)
+                    # Higher probability of calling liar for more unreasonable bets
+                    probability = min(0.9, (current_count - expected_value) / 5)
                     if random.random() < probability:
                         return liar_action
+            
+            # Enhanced heuristic for calling spot on
+            if abs(current_count - expected_value) <= 1:  # Close to expected
+                spot_on_action = ('spot_on', self.env.current_bet)
+                if spot_on_action in legal_actions:
+                    probability = 0.3  # Moderate probability for reasonable bets
+                    if random.random() < probability:
+                        return spot_on_action
         
         # Choose best action based on Q-values
         best_action = None
@@ -84,7 +173,24 @@ class QLearningAgent:
     
     def analyze_betting_patterns(self, state: np.ndarray, action: Tuple[str, Tuple[int, int]], 
                                stats: Dict) -> None:
-        """Analyze betting patterns and track bluffing behavior."""
+        """
+        Analyze betting patterns and track bluffing behavior.
+        
+        Tracks:
+        - Distribution of bet values and sizes
+        - True bluffs (betting high on non-wild values)
+        - Semi-bluffs (betting high on ones)
+        
+        Improved bluff detection considers:
+        1. Agent's actual dice count for the bet value
+        2. Expected value from remaining dice
+        3. Whether the bet is significantly above possible
+        
+        Args:
+            state: Current game state
+            action: Chosen action
+            stats: Dictionary to store statistics
+        """
         action_type, bet_info = action
         
         if action_type == 'bet':
@@ -92,21 +198,38 @@ class QLearningAgent:
             stats['bet_values'][value] += 1
             stats['bet_sizes'][count] += 1
             
-            # Check for bluffing
-            if value == 1:
-                # For ones, just look at actual ones
-                actual_count = state[10] + state[11]  # Player 1's ones + Player 2's ones
+            # Get agent's actual dice count for this value
+            if self.env.current_player == 0:
+                agent_dice_count = state[value-2] if value > 1 else state[10]  # Player 1's dice
             else:
-                # For other values, count the specific value plus ones
-                actual_count = state[value-2] + state[value+3]  # Player 1's + Player 2's value count
-                actual_count += state[10] + state[11]  # Add ones as wild
+                agent_dice_count = state[value+3] if value > 1 else state[11]  # Player 2's dice
             
-            # If betting more than actual count, it's a bluff
-            if count > actual_count:
+            # Calculate maximum possible count from remaining dice
+            remaining_dice = 10 - (state[10] + state[11])  # Total dice minus ones
+            if value == 1:
+                max_possible = agent_dice_count + remaining_dice  # All remaining dice could be ones
+            else:
+                max_possible = agent_dice_count + remaining_dice  # All remaining dice could be this value
+            
+            # Enhanced bluff detection
+            if count > max_possible:
+                # Definitely a bluff - betting more than possible
                 if value == 1:
-                    stats['semi_bluffs'][value] += 1  # Semi-bluff using ones
+                    stats['semi_bluffs'][value] += 1
                 else:
-                    stats['bluffs'][value] += 1  # True bluff
+                    stats['bluffs'][value] += 1
+            elif count > agent_dice_count + 2:
+                # Likely a bluff - betting significantly more than what agent has
+                if value == 1:
+                    stats['semi_bluffs'][value] += 1
+                else:
+                    stats['bluffs'][value] += 1
+            elif count > agent_dice_count and count > max_possible * 0.8:
+                # Potential bluff - betting close to maximum possible
+                if value == 1:
+                    stats['semi_bluffs'][value] += 1
+                else:
+                    stats['bluffs'][value] += 1
     
     def train(self, num_episodes: int) -> None:
         """Train the agent for specified number of episodes."""

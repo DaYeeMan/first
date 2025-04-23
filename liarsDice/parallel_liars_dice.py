@@ -6,6 +6,7 @@ from collections import defaultdict
 import multiprocessing as mp
 from concurrent.futures import ProcessPoolExecutor
 import time
+import os
 
 class ParallelTrainer:
     def __init__(self, num_episodes: int, num_processes: int = None):
@@ -163,8 +164,9 @@ class ParallelTrainer:
         # Save final Q-table
         agent1 = QLearningAgent(LiarsDiceEnv())
         agent1.q_table = q_table
-        agent1.save_compressed_q_table('liars_dice_policy.gz')
+        policy_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'liars_dice_policy.gz')
+        agent1.save_compressed_q_table(policy_path)
 
 if __name__ == "__main__":
-    trainer = ParallelTrainer(num_episodes=10000)
+    trainer = ParallelTrainer(num_episodes=50000)
     trainer.train() 

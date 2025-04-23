@@ -15,7 +15,8 @@ class LiarsDiceGame:
         # Initialize game components
         self.env = LiarsDiceEnv()
         self.ai_agent = QLearningAgent(self.env)
-        self.ai_agent.load_compressed_q_table('liars_dice_policy.gz')
+        policy_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'liars_dice_policy.gz')
+        self.ai_agent.load_compressed_q_table(policy_path)
         
         # Game state
         self.current_player = 0
