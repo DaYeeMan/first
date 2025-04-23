@@ -289,8 +289,8 @@ class LiarsDiceEnv:
         
         elif action_type == 'spot_on':
             self.round_number += 1
-            actual_count = self.count_dice(bet[1])
-            bet_count, bet_value = bet
+            actual_count = self.count_dice(self.current_bet[1])
+            bet_count, bet_value = self.current_bet
             
             if actual_count == bet_count:
                 # Successful spot on call

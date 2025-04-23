@@ -236,6 +236,19 @@ class LiarsDiceGame:
             value = int(self.value_var.get())
             action = ('bet', (count, value))
             
+            # Validate the bet
+            if not self.env.is_valid_bet((count, value)):
+                if self.env.current_bet is None:
+                    messagebox.showerror("Invalid Bet", "Count must be at least 1 and value must be between 1 and 6.")
+                else:
+                    current_count, current_value = self.env.current_bet
+                    if count <= current_count and (count < current_count or value <= current_value):
+                        messagebox.showerror("Invalid Bet", 
+                            f"Your bet must be higher than the current bet of {current_count} {current_value}'s.\n"
+                            f"Either increase the count above {current_count}, or keep the count at {current_count} "
+                            f"and increase the value above {current_value}.")
+                return
+            
             # Execute action
             state = self.env.get_state()
             next_state, reward, done, _ = self.env.step(action)
