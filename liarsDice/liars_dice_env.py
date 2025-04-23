@@ -111,21 +111,20 @@ class LiarsDiceEnv:
             state[12] = count
             state[13] = value
             
-            # Calculate expected value and probability features
+            # Calculate actual count for current bet
             if value == 1:
-                # For ones, only count actual ones
+                actual_count = np.sum(self.player1_dice == 1) + np.sum(self.player2_dice == 1)
                 expected_value = 10 * (1/6)  # Expected number of ones
-                actual_count = self.count_dice(1)
             else:
-                # For other values, count both the value and ones (wild)
+                actual_count = (np.sum(self.player1_dice == value) + np.sum(self.player2_dice == value) +
+                              np.sum(self.player1_dice == 1) + np.sum(self.player2_dice == 1))
                 expected_value = 10 * (2/6)  # Expected count including wild ones
-                actual_count = self.count_dice(value)
             
             # Features about the current bet
             state[14] = expected_value
             state[15] = actual_count
-            state[16] = (count - expected_value) / expected_value  # Normalized deviation from expected
-            state[17] = (count - actual_count) / actual_count if actual_count > 0 else 0
+            state[16] = (count - expected_value) / expected_value if expected_value > 0 else 1.0
+            state[17] = (count - actual_count) / actual_count if actual_count > 0 else 1.0
         else:
             state[12:18] = 0
         
@@ -157,11 +156,15 @@ class LiarsDiceEnv:
             Total count according to game rules
         """
         # Count actual dice showing the value
-        total = np.sum(self.player1_dice == value) + np.sum(self.player2_dice == value)
+        p1_count = np.sum(self.player1_dice == value)
+        p2_count = np.sum(self.player2_dice == value)
+        total = p1_count + p2_count
         
         # For non-1 values, add ones as wild cards
         if value != 1:
-            total += np.sum(self.player1_dice == 1) + np.sum(self.player2_dice == 1)
+            p1_ones = np.sum(self.player1_dice == 1)
+            p2_ones = np.sum(self.player2_dice == 1)
+            total += p1_ones + p2_ones
         
         return total
     
@@ -200,23 +203,29 @@ class LiarsDiceEnv:
         
         Actions:
         1. ('bet', (count, value)): Make a new bet
-        2. ('liar', None): Challenge previous bet as too high
+        2. ('liar', None): Challenge previous bet
         3. ('spot_on', (count, value)): Claim previous bet is exactly right
         
         Rewards:
         - Base: +1 for winning, -1 for losing
-        - Bluffing rewards/penalties:
-          * +0.8 for successful bluff (opponent calls liar on reasonable bet)
-          * -0.8 for failed bluff (opponent calls liar on actual bluff)
+        - Betting rewards/penalties:
+          * Value Bets (standard play):
+            - +0.4 for making a value bet (count ≈ own_dice + expected_opponent_dice)
+            - +0.2 bonus if opponent calls liar on value bet
+          * Bluffs:
+            - +0.6 for successful bluff (opponent calls spot on or raises)
+            - -0.4 for failed bluff (opponent calls liar)
+            - +0.3 for making a believable bluff (count within 1 of value bet range)
+          * Low Bets:
+            - +0.3 for making a low bet (count ≤ expected_opponent_dice)
+            - +0.2 bonus if opponent calls liar on subsequent value bet
+        - Liar Call rewards/penalties:
           * +0.5 for calling liar on definite bluff
           * +0.3 for calling liar on likely bluff
-          * -0.3 for calling liar on reasonable bet
+          * -0.3 for calling liar on value bet
         - Spot On rewards/penalties:
           * +0.5 for calling spot on on exact count
           * -0.5 for calling spot on on wrong count
-        
-        Returns:
-            Tuple of (next_state, reward, done, info)
         """
         action_type, bet = action
         done = False
@@ -232,37 +241,102 @@ class LiarsDiceEnv:
                 self.current_player = 1 - self.current_player
                 self.bets_made += 1
                 
-                # Calculate if this is a bluff
+                # Calculate dice counts and expected values
                 count, value = bet
                 if self.current_player == 0:
-                    agent_dice_count = np.sum(self.player1_dice == value) if value > 1 else np.sum(self.player1_dice == 1)
+                    agent_dice = self.player1_dice
+                    opponent_dice = self.player2_dice
                 else:
-                    agent_dice_count = np.sum(self.player2_dice == value) if value > 1 else np.sum(self.player2_dice == 1)
+                    agent_dice = self.player2_dice
+                    opponent_dice = self.player1_dice
                 
+                # Count agent's dice for the bet value
+                agent_count = np.sum(agent_dice == value) if value > 1 else np.sum(agent_dice == 1)
+                
+                # Calculate expected opponent dice
                 remaining_dice = 10 - (np.sum(self.player1_dice == 1) + np.sum(self.player2_dice == 1))
-                max_possible = agent_dice_count + remaining_dice
+                if value == 1:
+                    expected_opponent = remaining_dice * (1/6)  # Only actual ones
+                else:
+                    expected_opponent = remaining_dice * (2/6)  # Value + wild ones
                 
-                # Store bluff information for when the bet is challenged
-                info['is_bluff'] = count > max_possible or count > agent_dice_count + 2 or (count > agent_dice_count and count > max_possible * 0.8)
-                info['bluff_type'] = 'semi_bluff' if value == 1 else 'true_bluff'
+                # Calculate value bet range
+                value_bet_min = agent_count + expected_opponent - 0.5
+                value_bet_max = agent_count + expected_opponent + 0.5
+                
+                # Determine bet type and assign rewards
+                if count <= expected_opponent:
+                    # Low bet
+                    reward = 0.3 if self.current_player == 0 else -0.3
+                    info['bet_type'] = 'low'
+                elif value_bet_min <= count <= value_bet_max:
+                    # Value bet
+                    reward = 0.4 if self.current_player == 0 else -0.4
+                    info['bet_type'] = 'value'
+                else:
+                    # Bluff
+                    if abs(count - value_bet_max) <= 1:
+                        # Believable bluff
+                        reward = 0.3 if self.current_player == 0 else -0.3
+                    else:
+                        # Obvious bluff
+                        reward = -0.2 if self.current_player == 0 else 0.2
+                    info['bet_type'] = 'bluff'
+                
+                # Store additional information for when the bet is challenged
+                info['agent_count'] = agent_count
+                info['expected_opponent'] = expected_opponent
+                info['value_bet_range'] = (value_bet_min, value_bet_max)
         
         elif action_type == 'liar':
             self.round_number += 1
-            actual_count = self.count_dice(self.current_bet[1])
             bet_count, bet_value = self.current_bet
             
-            # Get opponent's dice count for the bet value
-            if self.current_player == 0:
-                opponent_dice_count = np.sum(self.player2_dice == bet_value) if bet_value > 1 else np.sum(self.player2_dice == 1)
+            # Get detailed count information
+            p1_value = np.sum(self.player1_dice == bet_value)
+            p2_value = np.sum(self.player2_dice == bet_value)
+            p1_ones = np.sum(self.player1_dice == 1)
+            p2_ones = np.sum(self.player2_dice == 1)
+            
+            # Calculate actual count with detailed breakdown
+            if bet_value == 1:
+                actual_count = p1_value + p2_value  # Only actual ones
             else:
-                opponent_dice_count = np.sum(self.player1_dice == bet_value) if bet_value > 1 else np.sum(self.player1_dice == 1)
+                actual_count = p1_value + p2_value + p1_ones + p2_ones  # Value + wild ones
             
-            # Calculate maximum possible count
-            remaining_dice = 10 - (np.sum(self.player1_dice == 1) + np.sum(self.player2_dice == 1))
-            max_possible = opponent_dice_count + remaining_dice
+            # Store detailed count information
+            info['count_details'] = {
+                'p1_value': p1_value,
+                'p2_value': p2_value,
+                'p1_ones': p1_ones,
+                'p2_ones': p2_ones,
+                'total_value': p1_value + p2_value,
+                'total_ones': p1_ones + p2_ones,
+                'actual_count': actual_count
+            }
             
-            # Determine if it was a bluff
-            is_bluff = bet_count > max_possible or bet_count > opponent_dice_count + 2 or (bet_count > opponent_dice_count and bet_count > max_possible * 0.8)
+            # Calculate expected value
+            remaining_dice = 10 - (p1_ones + p2_ones)
+            if bet_value == 1:
+                expected_value = p1_value + p2_value + remaining_dice * (1/6)  # Only actual ones
+            else:
+                expected_value = p1_value + p2_value + p1_ones + p2_ones + remaining_dice * (2/6)  # Value + wild ones
+            
+            # Calculate maximum possible count and expected value
+            max_possible = p1_value + p2_value + remaining_dice
+            
+            # Get agent's own dice count
+            if self.current_player == 0:
+                agent_value = p1_value
+                agent_ones = p1_ones
+            else:
+                agent_value = p2_value
+                agent_ones = p2_ones
+            
+            # Determine if it was a bluff based on agent's knowledge
+            is_bluff = (bet_count > max_possible or 
+                       bet_count > expected_value + 2 or 
+                       (bet_value == 1 and agent_ones == 0 and bet_count > 5))
             
             if actual_count < bet_count:
                 # Successful liar call
@@ -271,35 +345,93 @@ class LiarsDiceEnv:
                 # Additional rewards for calling liar on bluffs
                 if is_bluff:
                     if bet_count > max_possible:
-                        reward += 0.5 if self.current_player == 0 else -0.5  # Definite bluff
+                        reward += 0.8 if self.current_player == 0 else -0.8  # Definite bluff
+                    elif bet_count > expected_value + 2:
+                        reward += 0.5 if self.current_player == 0 else -0.5  # Likely bluff
                     else:
-                        reward += 0.3 if self.current_player == 0 else -0.3  # Likely bluff
+                        reward += 0.2 if self.current_player == 0 else -0.2  # Borderline case
                 else:
-                    # Penalty for calling liar on reasonable bet
-                    reward -= 0.3 if self.current_player == 0 else 0.3
+                    # Penalty for calling liar on value bet
+                    reward -= 0.5 if self.current_player == 0 else 0.5
             else:
                 # Failed liar call
                 reward = -1 if self.current_player == 0 else 1
                 
                 # Additional penalty for failing to call a bluff
                 if is_bluff:
-                    reward -= 0.8 if self.current_player == 0 else 0.8
+                    if bet_count > max_possible:
+                        reward -= 0.8 if self.current_player == 0 else 0.8  # Obvious bluff
+                    else:
+                        reward -= 0.2 if self.current_player == 0 else 0.2  # Less obvious bluff
             
             done = True
         
         elif action_type == 'spot_on':
             self.round_number += 1
-            actual_count = self.count_dice(self.current_bet[1])
             bet_count, bet_value = self.current_bet
+            
+            # Get detailed count information
+            p1_value = np.sum(self.player1_dice == bet_value)
+            p2_value = np.sum(self.player2_dice == bet_value)
+            p1_ones = np.sum(self.player1_dice == 1)
+            p2_ones = np.sum(self.player2_dice == 1)
+            
+            # Calculate actual count with detailed breakdown
+            if bet_value == 1:
+                actual_count = p1_value + p2_value  # Only actual ones
+            else:
+                actual_count = p1_value + p2_value + p1_ones + p2_ones  # Value + wild ones
+            
+            # Store detailed count information
+            info['count_details'] = {
+                'p1_value': p1_value,
+                'p2_value': p2_value,
+                'p1_ones': p1_ones,
+                'p2_ones': p2_ones,
+                'total_value': p1_value + p2_value,
+                'total_ones': p1_ones + p2_ones,
+                'actual_count': actual_count
+            }
+            
+            # Calculate expected value
+            remaining_dice = 10 - (p1_ones + p2_ones)
+            if bet_value == 1:
+                expected_value = p1_value + p2_value + remaining_dice * (1/6)  # Only actual ones
+            else:
+                expected_value = p1_value + p2_value + p1_ones + p2_ones + remaining_dice * (2/6)  # Value + wild ones
             
             if actual_count == bet_count:
                 # Successful spot on call
                 reward = 1 if self.current_player == 0 else -1
-                reward += 0.5 if self.current_player == 0 else -0.5  # Bonus for exact count
+                # Calculate deviation from expected value
+                expected_deviation = abs(bet_count - expected_value) / expected_value if expected_value > 0 else 1
+                # Scale bonus based on how unlikely the bet was
+                if expected_deviation > 1:
+                    reward += 0.4 if self.current_player == 0 else -0.4  # Lower bonus for unlikely exact count
+                else:
+                    reward += 0.8 if self.current_player == 0 else -0.8  # Standard bonus for likely exact count
+            elif abs(actual_count - bet_count) <= 1:
+                # Close but not exact
+                reward = -1 if self.current_player == 0 else 1
+                # Calculate deviation from expected value
+                expected_deviation = abs(bet_count - expected_value) / expected_value if expected_value > 0 else 1
+                # Scale reward based on how unlikely the bet was
+                if expected_deviation > 1:
+                    reward += 0.1 if self.current_player == 0 else -0.1  # Minimal reward for unlikely close call
+                else:
+                    reward += 0.3 if self.current_player == 0 else -0.3  # Standard reward for likely close call
             else:
                 # Failed spot on call
                 reward = -1 if self.current_player == 0 else 1
-                reward -= 0.5 if self.current_player == 0 else 0.5  # Penalty for wrong count
+                # Calculate deviation from expected value
+                expected_deviation = abs(bet_count - expected_value) / expected_value if expected_value > 0 else 1
+                # Scale penalty based on how unlikely the bet was
+                if expected_deviation > 1:
+                    reward -= 1.5 if self.current_player == 0 else 1.5  # Higher penalty for unlikely wrong call
+                else:
+                    reward -= 0.8 if self.current_player == 0 else 0.8  # Standard penalty for likely wrong call
+                if abs(actual_count - bet_count) > 2:
+                    reward -= 0.3 if self.current_player == 0 else 0.3  # Additional penalty for being far off
             
             done = True
         

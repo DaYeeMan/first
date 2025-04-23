@@ -350,28 +350,92 @@ class LiarsDiceGame:
             total_count = self.env.count_dice(value)
             opponent_dice = self.env.player2_dice if self.current_player == 0 else self.env.player1_dice
             
+            # Get detailed count information
+            p1_value = np.sum(self.env.player1_dice == value)
+            p2_value = np.sum(self.env.player2_dice == value)
+            p1_ones = np.sum(self.env.player1_dice == 1)
+            p2_ones = np.sum(self.env.player2_dice == 1)
+            
+            # Print detailed count information to terminal
+            print("\n=== Detailed Count Information ===")
+            print(f"Bet: {count} {value}'s")
+            print(f"Player 1's dice: {self.env.player1_dice}")
+            print(f"Player 2's dice: {self.env.player2_dice}")
+            print(f"Player 1's {value}'s: {p1_value}")
+            print(f"Player 2's {value}'s: {p2_value}")
+            print(f"Player 1's ones: {p1_ones}")
+            print(f"Player 2's ones: {p2_ones}")
+            if value == 1:
+                print("Total count (only actual ones):", p1_value + p2_value)
+            else:
+                print(f"Total count ({value}'s + wild ones):", p1_value + p2_value + p1_ones + p2_ones)
+            print("===============================\n")
+            
             # Create message with opponent's dice and count
             dice_str = ", ".join(map(str, opponent_dice))
             message = f"Opponent's dice: {dice_str}\n"
             message += f"Total {value}'s (including wild ones): {total_count}\n"
             
-            # Determine winner based on reward and current player
-            if (reward > 0 and self.current_player == 0) or (reward < 0 and self.current_player == 1):
-                message += "You won!"
-                self.stats['wins'] += 1
+            # Determine winner based on the last action and actual count
+            last_action = self.game_history[-1][0] if self.game_history else None
+            if last_action:
+                if last_action.startswith("Player 1 called"):
+                    # Player 1 (user) made the last call
+                    if "liar" in last_action.lower():
+                        # User called liar
+                        if total_count < count:
+                            # User wins - bet was too high
+                            message += "You won! The actual count was less than the bet."
+                            self.stats['wins'] += 1
+                        else:
+                            # User loses - bet was correct or too low
+                            message += "You lost! The actual count was equal to or greater than the bet."
+                            self.stats['losses'] += 1
+                    elif "spot on" in last_action.lower():
+                        # User called spot on
+                        if total_count == count:
+                            # User wins - exact count
+                            message += "You won! You called the exact count!"
+                            self.stats['wins'] += 1
+                        else:
+                            # User loses - wrong count
+                            message += "You lost! The count was wrong."
+                            self.stats['losses'] += 1
+                else:
+                    # AI made the last call
+                    if "liar" in last_action.lower():
+                        # AI called liar
+                        if total_count < count:
+                            # User wins - bet was too high
+                            message += "You won! The actual count was less than the bet."
+                            self.stats['wins'] += 1
+                        else:
+                            # User loses - bet was correct or too low
+                            message += "You lost! The actual count was equal to or greater than the bet."
+                            self.stats['losses'] += 1
+                    elif "spot on" in last_action.lower():
+                        # AI called spot on
+                        if total_count == count:
+                            # User wins - AI called exact count
+                            message += "You won! AI called the exact count."
+                            self.stats['wins'] += 1
+                        else:
+                            # User loses - AI was wrong
+                            message += "You lost! AI's spot on call was wrong."
+                            self.stats['losses'] += 1
             else:
-                message += "You lost!"
-                self.stats['losses'] += 1
+                # No last action (shouldn't happen)
+                if total_count < count:
+                    message += "You won! The actual count was less than the bet."
+                    self.stats['wins'] += 1
+                else:
+                    message += "You lost! The actual count was equal to or greater than the bet."
+                    self.stats['losses'] += 1
             
             messagebox.showinfo("Game Over", message)
         else:
-            # Handle cases where game ends without a bet
-            if (reward > 0 and self.current_player == 0) or (reward < 0 and self.current_player == 1):
-                messagebox.showinfo("Game Over", "You won!")
-                self.stats['wins'] += 1
-            else:
-                messagebox.showinfo("Game Over", "You lost!")
-                self.stats['losses'] += 1
+            # No current bet (invalid state)
+            messagebox.showinfo("Game Over", "Game ended in an invalid state.")
         
         # Update stats
         self.stats['total_games'] += 1
