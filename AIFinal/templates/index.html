@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tic Tac Toe</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>Tic Tac Toe</h1>
+        <div class="game-info">
+            <p>Current Player: <span id="current-player">X</span></p>
+        </div>
+        <div class="game-board">
+            {% for i in range(9) %}
+            <div class="cell" data-position="{{ i }}"></div>
+            {% endfor %}
+        </div>
+        <button id="reset-button">Reset Game</button>
+        <div id="message"></div>
+    </div>
+    <script src="{{ url_for('static', filename='js/game.js') }}"></script>
+</body>
+</html> 
